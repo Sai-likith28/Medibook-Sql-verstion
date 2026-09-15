@@ -7,19 +7,31 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Verify MySQL pool connection on startup
+const { ensurePhase10bSchema } = require('./config/migratePhase10b');
+
+// Verify MySQL pool connection & run Phase 10B schema extensions on startup
 pool.query('SELECT 1')
-    .then(() => console.log('MySQL Connected'))
+    .then(async () => {
+        console.log('MySQL Connected');
+        try {
+            await ensurePhase10bSchema(pool);
+            console.log('Phase 10B Schema & Seed Sync Completed');
+        } catch (err) {
+            console.error('Phase 10B Schema Sync Error:', err.message);
+        }
+    })
     .catch(err => console.error('MySQL connection error:', err));
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 
+app.use('/auth', authRoutes);
 app.use('/admin/reports', reportRoutes);
 app.use('/admin', adminRoutes);
 app.use('/', patientRoutes);
