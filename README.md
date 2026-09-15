@@ -156,6 +156,42 @@ CALL book_appointment(1, 1);
 
 ---
 
+## 📜 MySQL Triggers — Booking Audit Log
+
+The repository includes database triggers defined in [`database/triggers/booking_audit.sql`](database/triggers/booking_audit.sql) that automatically log an immutable history of booking creation and status transitions into the `booking_audit` table.
+
+### Audit Table Schema (`booking_audit`)
+```sql
+CREATE TABLE IF NOT EXISTS booking_audit (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    booking_id BIGINT UNSIGNED NOT NULL,
+    old_status VARCHAR(50) NULL DEFAULT NULL,
+    new_status VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL, -- 'INSERT' or 'UPDATE'
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_audit_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    INDEX idx_audit_booking_id (booking_id),
+    INDEX idx_audit_changed_at (changed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### Implemented Triggers
+1. **`trg_bookings_after_insert`** (`AFTER INSERT ON bookings`):
+   - Automatically logs an initial audit entry when a booking is created (`action = 'INSERT'`, `old_status = NULL`, `new_status = NEW.status`).
+2. **`trg_bookings_after_update`** (`AFTER UPDATE ON bookings`):
+   - Logs status transitions (`action = 'UPDATE'`, `old_status = OLD.status`, `new_status = NEW.status`).
+   - **Status Change Guard**: Executes **only** if the booking status actually changes (`OLD.status <> NEW.status`), preventing unnecessary audit log rows during no-op updates.
+
+### Key Trigger Design & Safety Principles
+- **Database-Level Audit Governance**: The triggers execute at the database engine level, guaranteeing audit history capturing regardless of whether the booking change originates from the Express REST API, Node.js services, the `book_appointment` stored procedure, the background expiry cron job, or direct SQL commands in MySQL Workbench.
+- **Why Triggers Do NOT Mutate `is_booked`**: The triggers strictly insert into `booking_audit` and do **not** mutate `appointment_slots` or `bookings`. This prevents trigger recursion, lock contention, and transaction deadlocks with application-level `SELECT ... FOR UPDATE` locks.
+- **Transactional Participation**: Triggers execute synchronously within the calling transaction. If a booking creation or status update rolls back, its corresponding `booking_audit` record is automatically rolled back.
+- **Audit Scope Note**: This implementation provides database-level transaction audit logging. It serves as an internal table audit trail rather than a full enterprise Change Data Capture (CDC) or external event-streaming architecture.
+
+
+
+---
+
 ## 🧪 Verification & Testing Results
 
 The following integration and concurrency tests were executed against the active MySQL backend:
