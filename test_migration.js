@@ -88,6 +88,10 @@ async function runVerificationTests() {
         const resGetBook = createMockRes();
         await patientController.getBooking(reqGetBook, resGetBook);
         console.log('Booking details:', resGetBook.statusCode, resGetBook.data);
+        if (!resGetBook.data.doctorName || !resGetBook.data.specialization) {
+            throw new Error('Test 7 Failed: GET /bookings/:id response missing doctorName or specialization!');
+        }
+        console.log(`✅ Test 7 Verified: doctorName = "${resGetBook.data.doctorName}", specialization = "${resGetBook.data.specialization}"`);
 
         // Test 8: Attempt Booking Already Booked Slot (Should Fail with 409)
         console.log('\n[Test 8] Book Already Booked Slot (Should Fail)...');

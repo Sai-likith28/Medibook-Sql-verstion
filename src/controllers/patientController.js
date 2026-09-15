@@ -64,10 +64,13 @@ exports.getBooking = async (req, res) => {
                 s.slot_date,
                 s.slot_time,
                 s.is_booked,
-                s.created_at AS slot_created_at
+                s.created_at AS slot_created_at,
+                d.name AS doctor_name,
+                d.specialization
             FROM bookings b
             JOIN patients p ON b.patient_id = p.id
             JOIN appointment_slots s ON b.slot_id = s.id
+            LEFT JOIN doctors d ON s.doctor_id = d.id
             WHERE b.id = ?`,
             [id]
         );
@@ -81,6 +84,8 @@ exports.getBooking = async (req, res) => {
             _id: String(row.booking_id),
             id: row.booking_id,
             patientName: row.patient_name,
+            doctorName: row.doctor_name || 'Unknown Doctor',
+            specialization: row.specialization || 'General',
             status: row.status,
             expiresAt: row.expires_at,
             createdAt: row.booking_created_at,

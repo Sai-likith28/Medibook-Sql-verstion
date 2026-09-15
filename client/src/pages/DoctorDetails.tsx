@@ -1,13 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getDoctorSlots, bookSlot, getDoctors } from '../services/api';
+import { getDoctorSlots, bookSlot, getDoctors, getBookingById } from '../services/api';
 import type { Slot, Doctor } from '../services/api';
 import Button from '../components/Button';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import toast from 'react-hot-toast';
-import { Calendar, Clock, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, Printer, CheckCircle } from 'lucide-react';
+
+interface ReceiptData {
+    bookingRef: string;
+    bookingId: string | number;
+    patientName: string;
+    doctorName: string;
+    specialization: string;
+    date: string;
+    time: string;
+    status: string;
+    createdAt: string;
+}
 
 const DoctorDetails = () => {
     const { id } = useParams<{ id: string }>();
@@ -17,10 +29,7 @@ const DoctorDetails = () => {
     const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
     const [patientName, setPatientName] = useState('');
     const [bookingLoading, setBookingLoading] = useState(false);
-
-    // Fetch doctor info (could be optimized if we had a getDoctorById endpoint, using getDoctors for now or assuming we could pass state)
-    // But reliable way is to fetch. Since backend only has getDoctors list, we'll fetch all and find one. 
-    // Ideally backend should have GET /doctors/:id.
+    const [confirmedReceipt, setConfirmedReceipt] = useState<ReceiptData | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -48,8 +57,33 @@ const DoctorDetails = () => {
 
         setBookingLoading(true);
         try {
-            await bookSlot(selectedSlot._id, patientName);
-            toast.success('Booking confirmed!');
+            const booking = await bookSlot(selectedSlot._id, patientName);
+
+            // Fetch full booking details from backend GET /bookings/:id to ensure accurate receipt fields
+            let fullBooking = booking;
+            try {
+                if (booking && (booking._id || booking.id)) {
+                    fullBooking = await getBookingById(booking._id || String(booking.id));
+                }
+            } catch (e) {
+                console.warn('Could not fetch expanded booking details, using returned booking:', e);
+            }
+
+            const rawId = fullBooking.id || fullBooking._id || '1';
+            const numId = Number(rawId) || 1;
+            const refCode = `BK-${String(numId).padStart(6, '0')}`;
+
+            setConfirmedReceipt({
+                bookingRef: refCode,
+                bookingId: rawId,
+                patientName: fullBooking.patientName || patientName,
+                doctorName: fullBooking.doctorName || doctor?.name || 'Unknown Doctor',
+                specialization: fullBooking.specialization || doctor?.specialization || 'General',
+                date: selectedSlot.date,
+                time: selectedSlot.time,
+                status: fullBooking.status || 'CONFIRMED',
+                createdAt: fullBooking.createdAt || new Date().toISOString()
+            });
 
             // Update local state
             setSlots(prev => prev.map(s => s._id === selectedSlot._id ? { ...s, isBooked: true } : s));
@@ -63,6 +97,10 @@ const DoctorDetails = () => {
         }
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     if (loading) {
         return <div className="flex justify-center h-64 items-center"><Spinner /></div>;
     }
@@ -73,6 +111,15 @@ const DoctorDetails = () => {
 
     return (
         <div className="space-y-6">
+            {/* Print Stylesheet Injection */}
+            <style>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    #printable-receipt, #printable-receipt * { visibility: visible; }
+                    #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; }
+                }
+            `}</style>
+
             <div>
                 <Link to="/" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4">
                     <ArrowLeft className="mr-1 h-4 w-4" /> Back to Doctors
@@ -122,6 +169,7 @@ const DoctorDetails = () => {
                 </ul>
             </div>
 
+            {/* Modal 1: Booking Input Form */}
             <Modal
                 isOpen={!!selectedSlot}
                 onClose={() => setSelectedSlot(null)}
@@ -159,6 +207,79 @@ const DoctorDetails = () => {
                         autoFocus
                     />
                 </div>
+            </Modal>
+
+            {/* Modal 2: Confirmation & Receipt Modal */}
+            <Modal
+                isOpen={!!confirmedReceipt}
+                onClose={() => setConfirmedReceipt(null)}
+                title="Appointment Booking Receipt"
+                footer={
+                    <>
+                        <Button
+                            className="w-full sm:ml-3 sm:w-auto"
+                            onClick={() => setConfirmedReceipt(null)}
+                        >
+                            Done
+                        </Button>
+                        <Button
+                            className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto"
+                            variant="secondary"
+                            onClick={handlePrint}
+                        >
+                            <Printer className="w-4 h-4 mr-1.5" />
+                            Print Receipt
+                        </Button>
+                    </>
+                }
+            >
+                {confirmedReceipt && (
+                    <div id="printable-receipt" className="space-y-4 p-2 bg-white rounded-md border border-gray-100 shadow-sm">
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle className="w-6 h-6 text-green-600" />
+                                <span className="text-lg font-bold text-gray-900">Booking Confirmed</span>
+                            </div>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                {confirmedReceipt.status}
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase">Booking Reference</p>
+                                <p className="text-sm font-bold text-gray-900 mt-0.5">{confirmedReceipt.bookingRef}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase">Patient Name</p>
+                                <p className="text-sm font-semibold text-gray-900 mt-0.5">{confirmedReceipt.patientName}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase">Doctor</p>
+                                <p className="text-sm font-semibold text-gray-900 mt-0.5">{confirmedReceipt.doctorName}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase">Specialization</p>
+                                <p className="text-sm font-semibold text-blue-600 mt-0.5">{confirmedReceipt.specialization}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase">Appointment Date</p>
+                                <p className="text-sm font-medium text-gray-900 mt-0.5">
+                                    {new Date(confirmedReceipt.date).toLocaleDateString()}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase">Appointment Time</p>
+                                <p className="text-sm font-medium text-gray-900 mt-0.5">{confirmedReceipt.time}</p>
+                            </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
+                            <span>MediBook SQL System</span>
+                            <span>Booked on: {new Date(confirmedReceipt.createdAt).toLocaleString()}</span>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

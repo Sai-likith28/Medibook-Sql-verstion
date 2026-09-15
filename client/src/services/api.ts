@@ -21,9 +21,14 @@ export interface Slot {
 
 export interface Booking {
     _id: string;
-    slotId: string;
+    id?: number;
+    slotId: string | Slot;
     patientName: string;
+    doctorName?: string;
+    specialization?: string;
     status: string;
+    expiresAt?: string | null;
+    createdAt?: string;
 }
 
 export const getDoctors = async () => {
@@ -38,6 +43,11 @@ export const getDoctorSlots = async (doctorId: string) => {
 
 export const bookSlot = async (slotId: string, patientName: string) => {
     const response = await api.post<Booking>('/bookings', { slotId, patientName });
+    return response.data;
+};
+
+export const getBookingById = async (bookingId: string) => {
+    const response = await api.get<Booking>(`/bookings/${bookingId}`);
     return response.data;
 };
 
