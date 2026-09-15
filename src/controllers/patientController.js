@@ -31,7 +31,7 @@ exports.bookSlot = async (req, res) => {
     try {
         const { slotId, patientName } = req.body;
 
-        if (!slotId || !patientName) {
+        if (!slotId || !patientName || !patientName.trim()) {
             return res.status(400).json({ error: 'slotId and patientName are required' });
         }
 

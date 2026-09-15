@@ -5,7 +5,7 @@ const { formatDoctor, formatSlot, normalizeDateToMySQL, normalizeTimeToMySQL } =
 exports.createDoctor = async (req, res) => {
     try {
         const { name, specialization } = req.body;
-        if (!name || !specialization) {
+        if (!name || !name.trim() || !specialization || !specialization.trim()) {
             return res.status(400).json({ error: 'Name and specialization are required' });
         }
 

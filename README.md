@@ -223,24 +223,37 @@ Alternatively, execute `node test_reports.js` to run the automated test suite ag
 
 ---
 
-## 🧪 Verification & Testing Results
+## 🧪 Testing, Error Handling & Debugging Quality
 
-The following integration and concurrency tests were executed against the active MySQL backend:
+The repository features a complete 5-part automated test suite covering API validation, status code mapping, concurrency, stored procedures, triggers, rollbacks, and read-only analytical reports.
 
-1. **Doctor Creation**: Verified `POST /admin/doctors` creates a doctor record.
-2. **Doctor Retrieval**: Verified `GET /doctors` returns formatted doctor lists.
-3. **Slot Creation**: Verified `POST /admin/slots` parses date/time formats into `DATE` and `TIME` columns.
-4. **Duplicate Slot Rejection**: Verified `uk_doctor_date_time` rejects duplicate doctor/date/time slots (`400 Bad Request`).
-5. **Slot Retrieval**: Verified `GET /doctors/:id/slots` retrieves available doctor slots.
-6. **Patient Find-or-Create**: Verified automatic creation and reuse of `patients` master rows during booking.
-7. **Booking Details (JOIN)**: Verified `GET /bookings/:id` executes multi-table SQL `JOIN`s to return populated slot and patient details.
-8. **Double Booking Prevention**: Verified subsequent booking attempts on a booked slot return `409 Conflict`.
-9. **Concurrency Test**: Fired 2 simultaneous booking requests at the exact same millisecond against a single slot. Exactly 1 request succeeded (`201 Created`) and 1 was rejected (`409 Conflict`), maintaining DB consistency.
-10. **Expiry Cron Job**: Verified 2-minute-old `PENDING` bookings transition to `FAILED` and release `appointment_slots.is_booked` to `0`.
-11. **Patient Reuse**: Verified duplicate bookings for the same patient name reuse the existing `patient_id`.
-12. **Database Clean Reset**: Verified test environment setup and teardown.
+### Test Suites Overview & Commands
+
+| Test Suite File | Command | Scope & Verification |
+| :--- | :--- | :--- |
+| **`test_migration.js`** | `node test_migration.js` | REST API endpoints, JSON formatting (`_id: String`), duplicate slot rejection, and API-level concurrency testing (2 simultaneous HTTP requests). |
+| **`test_procedure.js`** | `node test_procedure.js` | Direct SQL execution of stored procedure `book_appointment`, validation error rejections (`Patient not found`, `Slot not found`), and procedure-level concurrency testing. |
+| **`test_trigger.js`** | `node test_trigger.js` | Verification of `trg_bookings_after_insert` and `trg_bookings_after_update` triggers, no-op status update filtering, and trigger transaction rollback safety. |
+| **`test_reports.js`** | `node test_reports.js` | Verification of all 6 read-only SQL reports, output table column mapping, and empty-dataset division-by-zero safety (`NULLIF`). |
+| **`test_error_handling.js`** | `node test_error_handling.js` | API status code verification (`400`, `404`, `409`), whitespace validation, and non-orphan data checks on transaction failure. |
+
+#### Running All Test Suites
+```bash
+node test_migration.js; node test_procedure.js; node test_trigger.js; node test_reports.js; node test_error_handling.js
+```
+
+### Key Quality & Error Handling Design Principles
+1. **HTTP Status Code Standardization**:
+   - `400 Bad Request`: Returned on missing/empty required fields, whitespace inputs, or duplicate slot creation attempts (`uk_doctor_date_time`).
+   - `404 Not Found`: Returned when attempting to view/query a non-existent doctor ID or booking ID.
+   - `409 Conflict`: Returned when attempting to book an unavailable, non-existent, or already-booked slot.
+2. **Transaction & Rollback Integrity**:
+   - Every booking attempt is executed inside an atomic transaction. If any validation, foreign key check, or active slot constraint fails, the transaction issues `ROLLBACK`, guaranteeing zero orphan records in `patients`, `bookings`, `appointment_slots`, or `booking_audit`.
+3. **Data Protection & Secret Masking**:
+   - Database errors are caught cleanly in controller try-catch blocks and returned as structured JSON error messages without exposing raw database credentials, connection strings, or internal SQL traces.
 
 ---
+
 
 ## 🚀 Local Setup & Installation
 
