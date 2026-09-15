@@ -218,14 +218,72 @@ mysql -u root -p medibook_sql < database/reports/doctor_utilization.sql
 ```
 Alternatively, execute `node test_reports.js` to run the automated test suite against the local database.
 
+---
 
+## 📈 Read-Only SQL Reporting API (Step 9A)
 
+The backend provides a read-only Express API for accessing the 6 analytical SQL reports.
+
+### Endpoint Specification
+
+- **Base URL**: `GET /admin/reports/:reportName`
+- **List All Reports**: `GET /admin/reports`
+
+### Whitelisted Report Names
+
+| Report Name | Corresponding SQL Script | Description |
+| :--- | :--- | :--- |
+| `doctor-utilization` | `doctor_utilization.sql` | Calculates slot utilization rates (%) per doctor. |
+| `daily-summary` | `daily_summary.sql` | Summarizes daily booking volume and status ratios. |
+| `patient-activity` | `patient_activity.sql` | Aggregates booking history and last booking date per patient. |
+| `peak-booking-time` | `peak_booking_time.sql` | Analyzes slot demand distribution by hour and time window. |
+| `specialization-demand` | `specialization_demand.sql` | Aggregates department capacity, bookings, and fill rates. |
+| `booking-audit-lifecycle` | `booking_audit_lifecycle.sql` | Aggregated metrics of system status change audit events. |
+
+### Read-Only & Security Design
+- **Strict Whitelist**: Unrecognized report names are rejected immediately with `HTTP 400 Bad Request` (`{ "error": "Invalid report name" }`), preventing SQL injection and path traversal.
+- **Read-Only Execution**: Executes `SELECT` statements only via the connection pool. No data modifications (`INSERT`, `UPDATE`, `DELETE`) are performed.
+- **Safe Error Handling**: Server errors return `HTTP 500` with generic error messages (`{ "error": "Failed to generate report" }`) without exposing raw SQL or connection details.
+
+### Example Request & Response
+
+#### Request
+```bash
+GET http://localhost:3000/admin/reports/doctor-utilization
+```
+
+#### Successful Response (`200 OK`)
+```json
+{
+  "report": "doctor-utilization",
+  "data": [
+    {
+      "doctor_id": 1,
+      "doctor_name": "Dr. Sarah Connor",
+      "specialization": "Neurology",
+      "total_slots": 5,
+      "booked_slots": 4,
+      "confirmed_bookings": 4,
+      "failed_bookings": 0,
+      "available_slots": 1,
+      "utilization_rate_pct": "80.00"
+    }
+  ]
+}
+```
+
+#### Invalid Request Response (`400 Bad Request`)
+```json
+{
+  "error": "Invalid report name"
+}
+```
 
 ---
 
 ## 🧪 Testing, Error Handling & Debugging Quality
 
-The repository features a complete 5-part automated test suite covering API validation, status code mapping, concurrency, stored procedures, triggers, rollbacks, and read-only analytical reports.
+The repository features a complete 6-part automated test suite covering API validation, status code mapping, concurrency, stored procedures, triggers, rollbacks, read-only analytical reports, and reporting API endpoints.
 
 ### Test Suites Overview & Commands
 
@@ -236,10 +294,11 @@ The repository features a complete 5-part automated test suite covering API vali
 | **`test_trigger.js`** | `node test_trigger.js` | Verification of `trg_bookings_after_insert` and `trg_bookings_after_update` triggers, no-op status update filtering, and trigger transaction rollback safety. |
 | **`test_reports.js`** | `node test_reports.js` | Verification of all 6 read-only SQL reports, output table column mapping, and empty-dataset division-by-zero safety (`NULLIF`). |
 | **`test_error_handling.js`** | `node test_error_handling.js` | API status code verification (`400`, `404`, `409`), whitespace validation, and non-orphan data checks on transaction failure. |
+| **`test_report_api.js`** | `node test_report_api.js` | Verification of all 6 reporting API endpoints (`HTTP 200`), whitelist validation (`HTTP 400`), and read-only database safety checks (row count integrity before/after). |
 
 #### Running All Test Suites
 ```bash
-node test_migration.js; node test_procedure.js; node test_trigger.js; node test_reports.js; node test_error_handling.js
+node test_migration.js; node test_procedure.js; node test_trigger.js; node test_reports.js; node test_error_handling.js; node test_report_api.js
 ```
 
 ### Key Quality & Error Handling Design Principles

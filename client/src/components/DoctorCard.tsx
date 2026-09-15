@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Doctor } from '../services/api';
 import { User } from 'lucide-react';
 import Button from './Button';

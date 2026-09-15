@@ -109,7 +109,6 @@ const DoctorDetails = () => {
                                         )}
                                     </div>
                                     <Button
-                                        size="sm"
                                         disabled={slot.isBooked}
                                         onClick={() => setSelectedSlot(slot)}
                                         variant={slot.isBooked ? 'ghost' : 'primary'}

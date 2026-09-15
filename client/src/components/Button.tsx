@@ -1,4 +1,4 @@
-import React, { ButtonHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
 import { twMerge } from 'tailwind-merge';
 import Spinner from './Spinner';
 

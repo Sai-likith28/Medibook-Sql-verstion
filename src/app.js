@@ -17,8 +17,10 @@ app.use(cors());
 app.use(express.json());
 
 const adminRoutes = require('./routes/adminRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 
+app.use('/admin/reports', reportRoutes);
 app.use('/admin', adminRoutes);
 app.use('/', patientRoutes);
 
