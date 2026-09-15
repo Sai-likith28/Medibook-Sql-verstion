@@ -4,6 +4,13 @@ import Modal from './Modal';
 import Input from './Input';
 import Button from './Button';
 import { Search, Calendar, Clock, User, Stethoscope, AlertCircle, CheckCircle2, XCircle, Clock3 } from 'lucide-react';
+import {
+    formatBookingRef,
+    formatAppointmentDate,
+    formatAppointmentTime,
+    formatDateTime,
+    getStatusBadgeStyle
+} from '../utils/formatters';
 
 interface BookingLookupModalProps {
     isOpen: boolean;
@@ -61,7 +68,7 @@ const BookingLookupModal: React.FC<BookingLookupModalProps> = ({ isOpen, onClose
             setBooking(data);
         } catch (err: any) {
             if (err.response && err.response.status === 404) {
-                const formattedRef = `BK-${String(bookingId).padStart(6, '0')}`;
+                const formattedRef = formatBookingRef(bookingId);
                 setNotFoundError(`No booking record found for reference ${formattedRef}. Please check your ID and try again.`);
             } else {
                 setNotFoundError('Failed to retrieve booking details. Please try again later.');
@@ -72,36 +79,24 @@ const BookingLookupModal: React.FC<BookingLookupModalProps> = ({ isOpen, onClose
     };
 
     const renderStatusBadge = (status: string) => {
-        switch (status) {
-            case 'CONFIRMED':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" />
-                        CONFIRMED
-                    </span>
-                );
-            case 'PENDING':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                        <Clock3 className="w-3.5 h-3.5 mr-1 text-yellow-600" />
-                        PENDING
-                    </span>
-                );
-            case 'FAILED':
-            default:
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                        <XCircle className="w-3.5 h-3.5 mr-1 text-red-600" />
-                        FAILED
-                    </span>
-                );
-        }
+        const badgeInfo = getStatusBadgeStyle(status);
+        const upper = (status || '').toUpperCase().trim();
+        let Icon = XCircle;
+        if (upper === 'CONFIRMED') Icon = CheckCircle2;
+        else if (upper === 'PENDING') Icon = Clock3;
+
+        return (
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeInfo.badgeClass}`}>
+                <Icon className={`w-3.5 h-3.5 mr-1 ${badgeInfo.iconClass}`} />
+                {badgeInfo.label}
+            </span>
+        );
     };
 
     const slotDetail = booking && typeof booking.slotId === 'object' ? booking.slotId : null;
-    const formattedDate = slotDetail?.date ? new Date(slotDetail.date).toLocaleDateString() : 'N/A';
-    const formattedTime = slotDetail?.time || 'N/A';
-    const displayRef = booking ? `BK-${String(booking.id || booking._id).padStart(6, '0')}` : '';
+    const formattedDate = slotDetail?.date ? formatAppointmentDate(slotDetail.date) : 'N/A';
+    const formattedTime = slotDetail?.time ? formatAppointmentTime(slotDetail.time) : 'N/A';
+    const displayRef = booking ? formatBookingRef(booking.id || booking._id) : '';
 
     return (
         <Modal
@@ -203,7 +198,7 @@ const BookingLookupModal: React.FC<BookingLookupModalProps> = ({ isOpen, onClose
                         <div>
                             <p className="text-xs font-medium text-gray-500 uppercase">Created On</p>
                             <p className="text-sm font-medium text-gray-500 mt-0.5">
-                                {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}
+                                {booking.createdAt ? formatDateTime(booking.createdAt) : 'N/A'}
                             </p>
                         </div>
                     </div>

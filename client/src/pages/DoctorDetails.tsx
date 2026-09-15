@@ -8,6 +8,13 @@ import Modal from '../components/Modal';
 import Input from '../components/Input';
 import toast from 'react-hot-toast';
 import { Calendar, Clock, ArrowLeft, Printer, CheckCircle } from 'lucide-react';
+import {
+    formatBookingRef,
+    formatAppointmentDate,
+    formatAppointmentTime,
+    formatBookingTimestamp,
+    getStatusBadgeStyle
+} from '../utils/formatters';
 
 interface ReceiptData {
     bookingRef: string;
@@ -70,8 +77,7 @@ const DoctorDetails = () => {
             }
 
             const rawId = fullBooking.id || fullBooking._id || '1';
-            const numId = Number(rawId) || 1;
-            const refCode = `BK-${String(numId).padStart(6, '0')}`;
+            const refCode = formatBookingRef(rawId);
 
             setConfirmedReceipt({
                 bookingRef: refCode,
@@ -137,7 +143,8 @@ const DoctorDetails = () => {
                         <li className="px-4 py-8 text-center text-gray-500">No slots available.</li>
                     ) : (
                         slots.map((slot) => {
-                            const date = new Date(slot.date).toLocaleDateString();
+                            const date = formatAppointmentDate(slot.date);
+                            const time = formatAppointmentTime(slot.time);
                             return (
                                 <li key={slot._id} className="px-4 py-4 sm:px-6 hover:bg-gray-50 flex items-center justify-between">
                                     <div className="flex items-center gap-6">
@@ -147,7 +154,7 @@ const DoctorDetails = () => {
                                         </div>
                                         <div className="flex items-center text-sm text-gray-500">
                                             <Clock className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
-                                            {slot.time}
+                                            {time}
                                         </div>
                                         {slot.isBooked && (
                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -196,8 +203,8 @@ const DoctorDetails = () => {
                 <div className="space-y-4">
                     <p className="text-sm text-gray-500">
                         Booking appointment with <strong>{doctor.name}</strong> on{' '}
-                        <strong>{selectedSlot && new Date(selectedSlot.date).toLocaleDateString()}</strong> at{' '}
-                        <strong>{selectedSlot?.time}</strong>.
+                        <strong>{selectedSlot && formatAppointmentDate(selectedSlot.date)}</strong> at{' '}
+                        <strong>{selectedSlot && formatAppointmentTime(selectedSlot.time)}</strong>.
                     </p>
                     <Input
                         label="Patient Name"
@@ -233,53 +240,58 @@ const DoctorDetails = () => {
                     </>
                 }
             >
-                {confirmedReceipt && (
-                    <div id="printable-receipt" className="space-y-4 p-2 bg-white rounded-md border border-gray-100 shadow-sm">
-                        <div className="flex items-center justify-between pb-3 border-b border-gray-200">
-                            <div className="flex items-center gap-2">
-                                <CheckCircle className="w-6 h-6 text-green-600" />
-                                <span className="text-lg font-bold text-gray-900">Booking Confirmed</span>
+                {confirmedReceipt && (() => {
+                    const statusInfo = getStatusBadgeStyle(confirmedReceipt.status);
+                    return (
+                        <div id="printable-receipt" className="space-y-4 p-2 bg-white rounded-md border border-gray-100 shadow-sm">
+                            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="w-6 h-6 text-green-600" />
+                                    <span className="text-lg font-bold text-gray-900">Booking Confirmed</span>
+                                </div>
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusInfo.badgeClass}`}>
+                                    {statusInfo.label}
+                                </span>
                             </div>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                {confirmedReceipt.status}
-                            </span>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase">Booking Reference</p>
-                                <p className="text-sm font-bold text-gray-900 mt-0.5">{confirmedReceipt.bookingRef}</p>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase">Booking Reference</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-0.5">{confirmedReceipt.bookingRef}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase">Patient Name</p>
+                                    <p className="text-sm font-semibold text-gray-900 mt-0.5">{confirmedReceipt.patientName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase">Doctor</p>
+                                    <p className="text-sm font-semibold text-gray-900 mt-0.5">{confirmedReceipt.doctorName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase">Specialization</p>
+                                    <p className="text-sm font-semibold text-blue-600 mt-0.5">{confirmedReceipt.specialization}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase">Appointment Date</p>
+                                    <p className="text-sm font-medium text-gray-900 mt-0.5">
+                                        {formatAppointmentDate(confirmedReceipt.date)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-gray-500 uppercase">Appointment Time</p>
+                                    <p className="text-sm font-medium text-gray-900 mt-0.5">
+                                        {formatAppointmentTime(confirmedReceipt.time)}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase">Patient Name</p>
-                                <p className="text-sm font-semibold text-gray-900 mt-0.5">{confirmedReceipt.patientName}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase">Doctor</p>
-                                <p className="text-sm font-semibold text-gray-900 mt-0.5">{confirmedReceipt.doctorName}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase">Specialization</p>
-                                <p className="text-sm font-semibold text-blue-600 mt-0.5">{confirmedReceipt.specialization}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase">Appointment Date</p>
-                                <p className="text-sm font-medium text-gray-900 mt-0.5">
-                                    {new Date(confirmedReceipt.date).toLocaleDateString()}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase">Appointment Time</p>
-                                <p className="text-sm font-medium text-gray-900 mt-0.5">{confirmedReceipt.time}</p>
-                            </div>
-                        </div>
 
-                        <div className="pt-3 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
-                            <span>MediBook SQL System</span>
-                            <span>Booked on: {new Date(confirmedReceipt.createdAt).toLocaleString()}</span>
+                            <div className="pt-3 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
+                                <span>MediBook SQL System</span>
+                                <span>{formatBookingTimestamp(confirmedReceipt.createdAt)}</span>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </Modal>
         </div>
     );
