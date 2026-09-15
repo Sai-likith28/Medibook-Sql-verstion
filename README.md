@@ -189,6 +189,37 @@ CREATE TABLE IF NOT EXISTS booking_audit (
 - **Audit Scope Note**: This implementation provides database-level transaction audit logging. It serves as an internal table audit trail rather than a full enterprise Change Data Capture (CDC) or external event-streaming architecture.
 
 
+---
+
+## 📈 SQL Reporting & Analytics
+
+The repository includes a dedicated SQL reporting layer under [`database/reports/`](database/reports/) featuring 6 production-grade analytical SQL reports.
+
+### Key Semantics & Data Model Principles
+- **Read-Only**: All report queries perform strict `SELECT` operations without modifying data or schema definitions.
+- **Availability vs. History Decoupling**: `appointment_slots.is_booked` represents current row availability state (`0` = available, `1` = booked). `bookings.status` (`CONFIRMED`, `PENDING`, `FAILED`) represents the historical booking lifecycle. Multiple historical booking attempts (e.g. `FAILED` or expired attempts) can exist for a single slot over time.
+- **Division-by-Zero Safety**: All percentage ratio calculations utilize `NULLIF(denominator, 0)` to guarantee safe handling of zero-row data sets.
+
+### Implemented Reports Overview
+
+| Report Script | Purpose | Key SQL Concepts |
+| :--- | :--- | :--- |
+| [`doctor_utilization.sql`](database/reports/doctor_utilization.sql) | Evaluates doctor schedule capacity, confirmed bookings, failed bookings, current available slots, and utilization percentage. | `LEFT JOIN`, `GROUP BY`, `COUNT(DISTINCT)`, `SUM`, `CASE`, `NULLIF`, `ROUND` |
+| [`daily_summary.sql`](database/reports/daily_summary.sql) | Tracks daily appointment volume, confirmed bookings, failed attempts, and confirmation rates over a rolling `±30-day` date range. | Date range filtering (`CURDATE() ± 30 DAY`), `LEFT JOIN`, `GROUP BY`, `CASE`, `ROUND` |
+| [`patient_activity.sql`](database/reports/patient_activity.sql) | Identifies patient booking history, total attempts, confirmed visits, failed attempts, and date of most recent booking. | `INNER JOIN`, `GROUP BY`, `COUNT`, `SUM(CASE)`, `MAX(date)`, `HAVING` |
+| [`peak_booking_time.sql`](database/reports/peak_booking_time.sql) | Categorizes slot demand by hour of the day and time windows (Morning, Afternoon, Evening) to analyze patient booking preferences. | `HOUR()`, `TIME_FORMAT()`, `CASE` interval classification, `GROUP BY`, `SUM` |
+| [`specialization_demand.sql`](database/reports/specialization_demand.sql) | Aggregates capacity, confirmed bookings, failed attempts, and fill rates at the medical specialization / department level. | Multi-table `LEFT JOIN`, `GROUP BY`, `COUNT(DISTINCT)`, `ROUND` |
+| [`booking_audit_lifecycle.sql`](database/reports/booking_audit_lifecycle.sql) | Analyzes system lifecycle status change events (`INSERT`, `PENDING -> FAILED`, `PENDING -> CONFIRMED`) using the `booking_audit` table. | Subquery ratio calculation, `COALESCE`, `GROUP BY`, `COUNT` |
+
+### Executing Reports
+Reports can be run via MySQL Command Line Client or any standard MySQL Workbench / GUI:
+```bash
+mysql -u root -p medibook_sql < database/reports/doctor_utilization.sql
+```
+Alternatively, execute `node test_reports.js` to run the automated test suite against the local database.
+
+
+
 
 ---
 
