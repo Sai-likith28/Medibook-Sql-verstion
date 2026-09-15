@@ -128,6 +128,34 @@ If concurrent requests attempt to book the same slot simultaneously, row-level l
 
 ---
 
+## ⚙️ MySQL Stored Procedure (`book_appointment`)
+
+The repository includes a standalone MySQL stored procedure located at [`database/procedures/book_appointment.sql`](database/procedures/book_appointment.sql).
+
+### Parameters
+- `IN p_patient_id BIGINT UNSIGNED`: Primary key of the target patient in `patients`.
+- `IN p_slot_id BIGINT UNSIGNED`: Primary key of the target slot in `appointment_slots`.
+
+### Validation & Execution Flow
+1. **Patient Validation**: Verifies `p_patient_id` exists in `patients`. If missing, raises `'Patient not found'` via `SIGNAL SQLSTATE '45000'`.
+2. **Slot Validation & Row Locking**: Locks the slot row using `SELECT ... FOR UPDATE`. If missing, raises `'Appointment slot not found'`.
+3. **Availability Check**: Verifies `is_booked = 0`. If `is_booked = 1`, raises `'Appointment slot is already booked'`.
+4. **Booking Insertion**: Inserts record into `bookings` table with status `'CONFIRMED'`.
+5. **Slot State Update**: Updates `appointment_slots.is_booked = 1`.
+6. **Transaction Safety**: Encapsulated within `START TRANSACTION ... COMMIT`. Utilizes `DECLARE EXIT HANDLER FOR SQLEXCEPTION` with `ROLLBACK; RESIGNAL;` to guarantee atomic state changes.
+
+### Direct SQL Execution Example
+```sql
+USE medibook_sql;
+CALL book_appointment(1, 1);
+```
+
+> [!NOTE]
+> **Terminology Note**: This project demonstrates procedural database concepts using **MySQL Stored Procedures** written in MySQL's procedural SQL syntax (`DELIMITER`, `CREATE PROCEDURE`, `SIGNAL`, `EXIT HANDLER`). Note that **PL/SQL** (Procedural Language/Structured Query Language) is proprietary to **Oracle Database**. MySQL uses MySQL Procedural SQL. This project demonstrates stored procedure design, row locking, and transaction management using MySQL's native procedural dialect.
+
+
+---
+
 ## 🧪 Verification & Testing Results
 
 The following integration and concurrency tests were executed against the active MySQL backend:
