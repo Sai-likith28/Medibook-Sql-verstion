@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import Input from '../components/Input';
 import toast from 'react-hot-toast';
 import { Calendar, Clock, ArrowLeft, Printer, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import {
     formatBookingRef,
     formatAppointmentDate,
@@ -30,6 +31,7 @@ interface ReceiptData {
 
 const DoctorDetails = () => {
     const { id } = useParams<{ id: string }>();
+    const { user } = useAuth();
     const [slots, setSlots] = useState<Slot[]>([]);
     const [doctor, setDoctor] = useState<Doctor | null>(null);
     const [loading, setLoading] = useState(true);
@@ -37,6 +39,8 @@ const DoctorDetails = () => {
     const [patientName, setPatientName] = useState('');
     const [bookingLoading, setBookingLoading] = useState(false);
     const [confirmedReceipt, setConfirmedReceipt] = useState<ReceiptData | null>(null);
+
+    const isAuthenticatedPatient = user && user.role === 'PATIENT';
 
     useEffect(() => {
         const fetchData = async () => {
@@ -60,11 +64,13 @@ const DoctorDetails = () => {
     }, [id]);
 
     const handleBook = async () => {
-        if (!selectedSlot || !patientName.trim()) return;
+        const effectiveName = isAuthenticatedPatient ? (user?.name || user?.loginId || 'Patient') : patientName;
+
+        if (!selectedSlot || (!isAuthenticatedPatient && !effectiveName.trim())) return;
 
         setBookingLoading(true);
         try {
-            const booking = await bookSlot(selectedSlot._id, patientName);
+            const booking = await bookSlot(selectedSlot._id, effectiveName);
 
             // Fetch full booking details from backend GET /bookings/:id to ensure accurate receipt fields
             let fullBooking = booking;
@@ -82,7 +88,7 @@ const DoctorDetails = () => {
             setConfirmedReceipt({
                 bookingRef: refCode,
                 bookingId: rawId,
-                patientName: fullBooking.patientName || patientName,
+                patientName: fullBooking.patientName || effectiveName,
                 doctorName: fullBooking.doctorName || doctor?.name || 'Unknown Doctor',
                 specialization: fullBooking.specialization || doctor?.specialization || 'General',
                 date: selectedSlot.date,
@@ -206,13 +212,21 @@ const DoctorDetails = () => {
                         <strong>{selectedSlot && formatAppointmentDate(selectedSlot.date)}</strong> at{' '}
                         <strong>{selectedSlot && formatAppointmentTime(selectedSlot.time)}</strong>.
                     </p>
-                    <Input
-                        label="Patient Name"
-                        value={patientName}
-                        onChange={(e) => setPatientName(e.target.value)}
-                        placeholder="Enter your full name"
-                        autoFocus
-                    />
+                    {isAuthenticatedPatient ? (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs space-y-1">
+                            <p className="font-semibold text-blue-900 uppercase tracking-wider text-[11px]">Authenticated Patient Account</p>
+                            <p className="text-slate-800 text-sm font-bold">{user.name || user.loginId}</p>
+                            <p className="text-slate-500 font-mono text-[11px]">Patient Code: {user.patientCode || user.loginId}</p>
+                        </div>
+                    ) : (
+                        <Input
+                            label="Patient Name"
+                            value={patientName}
+                            onChange={(e) => setPatientName(e.target.value)}
+                            placeholder="Enter your full name"
+                            autoFocus
+                        />
+                    )}
                 </div>
             </Modal>
 

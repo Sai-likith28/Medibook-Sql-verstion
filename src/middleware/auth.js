@@ -130,9 +130,72 @@ const authorizeDoctorOwnership = (paramKey = 'doctorId') => {
     };
 };
 
+/**
+ * Express Middleware: Optional JWT Token Authentication
+ * If a valid token is present, populates req.user. If no token or invalid token, proceeds as unauthenticated without error.
+ */
+const optionalAuthenticateToken = async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return next();
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const [users] = await pool.query(
+            'SELECT id, login_id, role, status FROM users WHERE id = ?',
+            [decoded.id]
+        );
+
+        if (users.length > 0 && users[0].status === 'ACTIVE') {
+            const user = users[0];
+            let patientId = null;
+            let patientCode = null;
+            let doctorId = null;
+            let doctorCode = null;
+            let name = null;
+
+            if (user.role === 'PATIENT') {
+                const [pats] = await pool.query('SELECT id, patient_code, name FROM patients WHERE user_id = ?', [user.id]);
+                if (pats.length > 0) {
+                    patientId = pats[0].id;
+                    patientCode = pats[0].patient_code;
+                    name = pats[0].name;
+                }
+            } else if (user.role === 'DOCTOR') {
+                const [docs] = await pool.query('SELECT id, doctor_code, name FROM doctors WHERE user_id = ?', [user.id]);
+                if (docs.length > 0) {
+                    doctorId = docs[0].id;
+                    doctorCode = docs[0].doctor_code;
+                    name = docs[0].name;
+                }
+            }
+
+            req.user = {
+                id: user.id,
+                loginId: user.login_id,
+                role: user.role,
+                status: user.status,
+                name: name || user.login_id,
+                patientId,
+                patientCode,
+                doctorId,
+                doctorCode
+            };
+        }
+    } catch (err) {
+        // Ignore invalid token for optional auth, proceed as unauthenticated
+    }
+
+    next();
+};
+
 module.exports = {
     JWT_SECRET,
     authenticateToken,
+    optionalAuthenticateToken,
     requireRole,
     authorizePatientOwnership,
     authorizeDoctorOwnership

@@ -29,11 +29,13 @@ app.use(express.json());
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const doctorRoutes = require('./routes/doctorRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 
 app.use('/auth', authRoutes);
 app.use('/admin/reports', reportRoutes);
 app.use('/admin', adminRoutes);
+app.use('/doctor', doctorRoutes);
 app.use('/', patientRoutes);
 
 app.get('/', (req, res) => {

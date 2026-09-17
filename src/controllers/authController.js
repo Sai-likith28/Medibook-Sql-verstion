@@ -109,3 +109,98 @@ exports.getMe = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+/**
+ * POST /auth/register
+ * Public Patient Registration endpoint
+ */
+exports.register = async (req, res) => {
+    try {
+        const { name, loginId, password, email, phone } = req.body;
+
+        if (!name || !name.trim() || !loginId || !loginId.trim() || !password || !password.trim()) {
+            return res.status(400).json({ error: 'Name, Login ID, and Password are required.' });
+        }
+
+        if (password.trim().length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+        }
+
+        const trimmedLogin = loginId.trim();
+        const trimmedName = name.trim();
+        const trimmedEmail = email ? email.trim() : null;
+        const trimmedPhone = phone ? phone.trim() : null;
+
+        // Check if user login_id already exists
+        const [existingUsers] = await pool.query(
+            'SELECT id FROM users WHERE login_id = ?',
+            [trimmedLogin]
+        );
+
+        if (existingUsers.length > 0) {
+            return res.status(400).json({ error: `Login ID '${trimmedLogin}' is already taken. Please choose another.` });
+        }
+
+        if (trimmedEmail) {
+            const [existingEmail] = await pool.query(
+                'SELECT id FROM patients WHERE email = ?',
+                [trimmedEmail]
+            );
+            if (existingEmail.length > 0) {
+                return res.status(400).json({ error: `Email '${trimmedEmail}' is already registered.` });
+            }
+        }
+
+        // Hash password securely with bcrypt
+        const passwordHash = bcrypt.hashSync(password.trim(), 10);
+
+        // Insert into users
+        const [userResult] = await pool.query(
+            "INSERT INTO users (login_id, password_hash, role, status) VALUES (?, ?, 'PATIENT', 'ACTIVE')",
+            [trimmedLogin, passwordHash]
+        );
+        const userId = userResult.insertId;
+
+        // Determine patient_code
+        const patientCode = trimmedLogin.toUpperCase().startsWith('P-') 
+            ? trimmedLogin.toUpperCase() 
+            : `P-${String(userId).padStart(6, '0')}`;
+
+        // Insert into patients
+        const [patientResult] = await pool.query(
+            "INSERT INTO patients (user_id, patient_code, name, phone, email) VALUES (?, ?, ?, ?, ?)",
+            [userId, patientCode, trimmedName, trimmedPhone, trimmedEmail]
+        );
+        const patientId = patientResult.insertId;
+
+        // Generate signed JWT token
+        const token = jwt.sign(
+            {
+                id: userId,
+                loginId: trimmedLogin,
+                role: 'PATIENT',
+                patientId,
+                doctorId: null
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.status(201).json({
+            token,
+            user: {
+                id: userId,
+                loginId: trimmedLogin,
+                role: 'PATIENT',
+                status: 'ACTIVE',
+                name: trimmedName,
+                patientId,
+                patientCode
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+

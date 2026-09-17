@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Spinner from '../components/Spinner';
 import AdminReports from './AdminReports';
 import { Link } from 'react-router-dom';
-import { Plus, Users, Calendar, BarChart3 } from 'lucide-react';
+import { Plus, Users, Calendar, BarChart3, Shield, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
@@ -18,13 +18,13 @@ const AdminDashboard = () => {
         const fetchData = async () => {
             try {
                 const [slotsData, doctorsData] = await Promise.all([
-                    getAllSlots(), // Fetches all slots
+                    getAllSlots(),
                     getDoctors()
                 ]);
                 setSlots(slotsData);
                 setDoctors(doctorsData);
             } catch (error) {
-                toast.error('Failed to load dashboard data');
+                toast.error('Failed to load admin dashboard data');
             } finally {
                 setLoading(false);
             }
@@ -36,121 +36,162 @@ const AdminDashboard = () => {
         return doctors.find(d => d._id === id)?.name || 'Unknown Doctor';
     };
 
-    if (loading) return <div className="flex justify-center p-8"><Spinner /></div>;
+    if (loading) return <div className="flex justify-center p-12"><Spinner size={48} className="text-purple-600" /></div>;
+
+    const bookedSlotsCount = slots.filter(s => s.isBooked).length;
+    const availableSlotsCount = slots.length - bookedSlotsCount;
 
     return (
         <div className="space-y-6">
-            {/* Top View Toggle Tabs */}
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
-                    <button
-                        onClick={() => setViewMode('slots')}
-                        className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                            viewMode === 'slots'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        <Calendar className="mr-2 h-5 w-5" />
-                        Appointments & Slots
-                    </button>
-                    <button
-                        onClick={() => setViewMode('analytics')}
-                        className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                            viewMode === 'analytics'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        <BarChart3 className="mr-2 h-5 w-5" />
-                        SQL Analytics & Reports
-                    </button>
-                </nav>
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-slate-900 to-purple-950 rounded-2xl p-6 sm:p-8 text-white shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-purple-900/40">
+                <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-900/60 text-purple-200 text-xs font-medium border border-purple-700/50">
+                        <Shield className="w-3.5 h-3.5" /> System Operations Console
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                        Admin Control Dashboard
+                    </h1>
+                    <p className="text-xs sm:text-sm text-purple-200">
+                        MySQL Database Operations • Appointment Management • SQL Analytical Reporting
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <Link to="/admin/create-doctor">
+                        <Button variant="secondary" className="text-xs bg-slate-800 text-white hover:bg-slate-700 border-slate-700">
+                            <Users className="mr-1.5 h-3.5 w-3.5" />
+                            Add Doctor
+                        </Button>
+                    </Link>
+                    <Link to="/admin/create-slot">
+                        <Button className="text-xs bg-purple-600 hover:bg-purple-700 text-white border-transparent">
+                            <Plus className="mr-1.5 h-3.5 w-3.5" />
+                            Create Slot
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
-            {/* View Mode 1: Original Appointments & Slots Management */}
-            {viewMode === 'slots' && (
-                <div className="flex flex-col md:flex-row gap-6">
-                    {/* Sidebar / Actions Area */}
-                    <div className="w-full md:w-64 flex-shrink-0 space-y-4">
-                        <div className="bg-white p-4 shadow rounded-lg border border-gray-200">
-                            <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
-                            <div className="space-y-3">
-                                <Link to="/admin/create-doctor" className="block">
-                                    <Button className="w-full justify-start" variant="secondary">
-                                        <Users className="mr-2 h-4 w-4" />
-                                        Add New Doctor
-                                    </Button>
-                                </Link>
-                                <Link to="/admin/create-slot" className="block">
-                                    <Button className="w-full justify-start">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Create Slot
-                                    </Button>
-                                </Link>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-4 shadow rounded-lg border border-gray-200">
-                            <h2 className="text-lg font-medium text-gray-900 mb-2">Stats</h2>
-                            <div className="text-sm text-gray-500">
-                                <p>Total Doctors: <span className="font-medium text-gray-900">{doctors.length}</span></p>
-                                <p className="mt-1">Total Slots: <span className="font-medium text-gray-900">{slots.length}</span></p>
-                                <p className="mt-1 text-red-600">Booked: <span className="font-medium text-red-600">{slots.filter(s => s.isBooked).length}</span></p>
-                            </div>
-                        </div>
+            {/* Metric Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-medium text-slate-500">Active Doctors</p>
+                        <p className="text-2xl font-bold text-slate-900 mt-1">{doctors.length}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Registered providers</p>
                     </div>
+                    <div className="p-3 bg-purple-50 rounded-lg text-purple-600 border border-purple-100">
+                        <Users className="w-6 h-6" />
+                    </div>
+                </div>
 
-                    {/* Main Content Area - Slot Table */}
-                    <div className="flex-1 bg-white shadow rounded-lg overflow-hidden border border-gray-200">
-                        <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-gray-50">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                <Calendar className="inline-block mr-2 h-5 w-5 text-gray-400" />
-                                All Appointments / Slots
+                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-medium text-slate-500">Total Appointment Slots</p>
+                        <p className="text-2xl font-bold text-slate-900 mt-1">{slots.length}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Booked: {bookedSlotsCount} • Available: {availableSlotsCount}</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 rounded-lg text-blue-600 border border-blue-100">
+                        <Calendar className="w-6 h-6" />
+                    </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-medium text-slate-500">SQL Analytical Reports</p>
+                        <p className="text-2xl font-bold text-slate-900 mt-1">6</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Read-only analytical queries</p>
+                    </div>
+                    <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600 border border-emerald-100">
+                        <BarChart3 className="w-6 h-6" />
+                    </div>
+                </div>
+            </div>
+
+            {/* View Mode Toggle Tabs */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="border-b border-gray-200 px-6 pt-4 bg-slate-50/50">
+                    <nav className="-mb-px flex space-x-8">
+                        <button
+                            onClick={() => setViewMode('slots')}
+                            className={`flex items-center pb-4 px-1 border-b-2 font-bold text-xs transition-colors ${
+                                viewMode === 'slots'
+                                    ? 'border-purple-600 text-purple-700'
+                                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                        >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Appointments & Slots Table
+                        </button>
+                        <button
+                            onClick={() => setViewMode('analytics')}
+                            className={`flex items-center pb-4 px-1 border-b-2 font-bold text-xs transition-colors ${
+                                viewMode === 'analytics'
+                                    ? 'border-purple-600 text-purple-700'
+                                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                        >
+                            <BarChart3 className="mr-2 h-4 w-4" />
+                            SQL Analytics & Reports (6 Retained Reports)
+                        </button>
+                    </nav>
+                </div>
+
+                {/* View Mode 1: Appointments & Slots Table */}
+                {viewMode === 'slots' && (
+                    <div className="p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-purple-600" /> System Slots Overview
                             </h3>
+                            <span className="text-xs text-slate-500">Showing {slots.length} total slots</span>
                         </div>
-                        <div className="overflow-x-auto">
+
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-slate-50">
                                     <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Doctor
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                            Doctor Name
                                         </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Date
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                            Slot Date
                                         </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Time
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                            Slot Time
                                         </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                            Booking Status
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-200 text-xs">
                                     {slots.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">No slots found</td>
+                                            <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                                                No appointment slots created in system yet.
+                                            </td>
                                         </tr>
                                     ) : (
                                         slots.map((slot) => (
-                                            <tr key={slot._id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <tr key={slot._id} className="hover:bg-slate-50/80 transition-colors">
+                                                <td className="px-6 py-3.5 whitespace-nowrap font-medium text-slate-900">
                                                     {getDoctorName(slot.doctorId)}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td className="px-6 py-3.5 whitespace-nowrap text-slate-600">
                                                     {new Date(slot.date).toLocaleDateString()}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td className="px-6 py-3.5 whitespace-nowrap text-slate-600 font-mono">
                                                     {slot.time}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                <td className="px-6 py-3.5 whitespace-nowrap">
                                                     {slot.isBooked ? (
-                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                        <span className="px-2.5 py-0.5 inline-flex text-[11px] leading-5 font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                                                             Booked
                                                         </span>
                                                     ) : (
-                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                        <span className="px-2.5 py-0.5 inline-flex text-[11px] leading-5 font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                             Available
                                                         </span>
                                                     )}
@@ -162,13 +203,15 @@ const AdminDashboard = () => {
                             </table>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* View Mode 2: SQL Analytics Dashboard Component */}
-            {viewMode === 'analytics' && (
-                <AdminReports />
-            )}
+                {/* View Mode 2: Integrated SQL Analytics Component */}
+                {viewMode === 'analytics' && (
+                    <div className="p-6">
+                        <AdminReports />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

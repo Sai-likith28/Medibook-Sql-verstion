@@ -1,7 +1,7 @@
 const pool = require('../config/mysql');
 const { formatBooking } = require('../utils/formatters');
 
-exports.bookSlot = async (slotId, patientName) => {
+exports.bookSlot = async (slotId, patientName, patientIdOverride = null) => {
     const connection = await pool.getConnection();
 
     try {
@@ -24,22 +24,31 @@ exports.bookSlot = async (slotId, patientName) => {
             [slotId]
         );
 
-        // 3. Find or create patient
-        const trimmedName = patientName.trim();
-        const [patients] = await connection.query(
-            'SELECT id FROM patients WHERE name = ? LIMIT 1',
-            [trimmedName]
-        );
-
+        // 3. Resolve Patient Identity
         let patientId;
-        if (patients.length > 0) {
-            patientId = patients[0].id;
+        let resolvedPatientName = patientName ? patientName.trim() : 'Patient';
+
+        if (patientIdOverride) {
+            patientId = Number(patientIdOverride);
+            const [pats] = await connection.query('SELECT name FROM patients WHERE id = ?', [patientId]);
+            if (pats.length > 0 && pats[0].name) {
+                resolvedPatientName = pats[0].name;
+            }
         } else {
-            const [insertPatientResult] = await connection.query(
-                'INSERT INTO patients (name) VALUES (?)',
-                [trimmedName]
+            const [patients] = await connection.query(
+                'SELECT id FROM patients WHERE name = ? LIMIT 1',
+                [resolvedPatientName]
             );
-            patientId = insertPatientResult.insertId;
+
+            if (patients.length > 0) {
+                patientId = patients[0].id;
+            } else {
+                const [insertPatientResult] = await connection.query(
+                    'INSERT INTO patients (name) VALUES (?)',
+                    [resolvedPatientName]
+                );
+                patientId = insertPatientResult.insertId;
+            }
         }
 
         // 4. Create the booking with status CONFIRMED
@@ -59,7 +68,7 @@ exports.bookSlot = async (slotId, patientName) => {
 
         const bookingData = {
             ...bookingRows[0],
-            patient_name: trimmedName
+            patient_name: resolvedPatientName
         };
 
         return {

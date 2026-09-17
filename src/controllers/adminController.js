@@ -1,29 +1,68 @@
 const pool = require('../config/mysql');
+const bcrypt = require('bcryptjs');
 const { formatDoctor, formatSlot, normalizeDateToMySQL, normalizeTimeToMySQL } = require('../utils/formatters');
 
-// Create a new doctor
+// Create a new doctor with authenticated user account & temporary password
 exports.createDoctor = async (req, res) => {
     try {
-        const { name, specialization } = req.body;
+        const { name, specialization, email, password } = req.body;
         if (!name || !name.trim() || !specialization || !specialization.trim()) {
             return res.status(400).json({ error: 'Name and specialization are required' });
         }
 
-        const [result] = await pool.query(
-            'INSERT INTO doctors (name, specialization) VALUES (?, ?)',
-            [name.trim(), specialization.trim()]
+        const trimmedName = name.trim();
+        const trimmedSpec = specialization.trim();
+        const trimmedEmail = email ? email.trim() : null;
+
+        // Generate temporary password if not provided
+        const tempPassword = password && password.trim() 
+            ? password.trim() 
+            : `Doc${Math.floor(100000 + Math.random() * 900000)}!`;
+
+        const passwordHash = bcrypt.hashSync(tempPassword, 10);
+
+        // First insert into doctors to get auto-increment id
+        const [docResult] = await pool.query(
+            'INSERT INTO doctors (name, specialization, email) VALUES (?, ?, ?)',
+            [trimmedName, trimmedSpec, trimmedEmail]
+        );
+        const doctorId = docResult.insertId;
+
+        // Determine unique doctor_code (e.g. D-000001, D-000002)
+        const doctorCode = `D-${String(doctorId).padStart(6, '0')}`;
+
+        // Insert into users
+        const [userResult] = await pool.query(
+            "INSERT INTO users (login_id, password_hash, role, status) VALUES (?, ?, 'DOCTOR', 'ACTIVE')",
+            [doctorCode, passwordHash]
+        );
+        const userId = userResult.insertId;
+
+        // Link doctor record with user_id & doctor_code
+        await pool.query(
+            'UPDATE doctors SET user_id = ?, doctor_code = ? WHERE id = ?',
+            [userId, doctorCode, doctorId]
         );
 
         const [rows] = await pool.query(
-            'SELECT id, name, specialization, created_at FROM doctors WHERE id = ?',
-            [result.insertId]
+            'SELECT id, doctor_code, name, specialization, email, created_at FROM doctors WHERE id = ?',
+            [doctorId]
         );
 
-        res.status(201).json(formatDoctor(rows[0]));
+        const doctorObj = formatDoctor(rows[0]);
+
+        res.status(201).json({
+            ...doctorObj,
+            doctorCode,
+            loginId: doctorCode,
+            tempPassword, // Returned ONCE to admin upon creation
+            message: 'Doctor account created successfully. Please convey the temporary password to the doctor.'
+        });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 };
+
 
 // Get all doctors
 exports.getDoctors = async (req, res) => {
