@@ -41,7 +41,7 @@ async function runVerificationTests() {
 
         // Test 1: Doctor Creation
         console.log('\n[Test 1] Create Doctor...');
-        const reqDoc = { body: { name: 'Dr. Gregory House', specialization: 'Diagnostics' } };
+        const reqDoc = { body: { name: 'Doctor 1', specialization: 'Diagnostics' } };
         const resDoc = createMockRes();
         await adminController.createDoctor(reqDoc, resDoc);
         console.log('Doctor created:', resDoc.statusCode, resDoc.data);
@@ -76,7 +76,7 @@ async function runVerificationTests() {
 
         // Test 6: Patient Find-or-Create & Successful Booking
         console.log('\n[Test 6] Book Slot (Patient 1)...');
-        const reqBook1 = { body: { slotId: slotId, patientName: 'Sarah Connor' } };
+        const reqBook1 = { body: { slotId: slotId, patientName: 'Patient 1' } };
         const resBook1 = createMockRes();
         await patientController.bookSlot(reqBook1, resBook1);
         console.log('Booking 1 response:', resBook1.statusCode, resBook1.data);
@@ -95,7 +95,7 @@ async function runVerificationTests() {
 
         // Test 8: Attempt Booking Already Booked Slot (Should Fail with 409)
         console.log('\n[Test 8] Book Already Booked Slot (Should Fail)...');
-        const reqBook2 = { body: { slotId: slotId, patientName: 'John Connor' } };
+        const reqBook2 = { body: { slotId: slotId, patientName: 'Patient 2' } };
         const resBook2 = createMockRes();
         await patientController.bookSlot(reqBook2, resBook2);
         console.log('Double booking response:', resBook2.statusCode, resBook2.data);
@@ -109,8 +109,8 @@ async function runVerificationTests() {
 
         // Test 10: Concurrency Test (2 Simultaneous Bookings on slotId2)
         console.log('\n[Test 10] Concurrency Test: Simulating 2 concurrent bookings on slot ID', slotId2);
-        const promise1 = bookingService.bookSlot(slotId2, 'Concurrent Patient A');
-        const promise2 = bookingService.bookSlot(slotId2, 'Concurrent Patient B');
+        const promise1 = bookingService.bookSlot(slotId2, 'Concurrent Patient 1');
+        const promise2 = bookingService.bookSlot(slotId2, 'Concurrent Patient 2');
         const [result1, result2] = await Promise.all([promise1, promise2]);
         console.log('Concurrent Request 1 Result:', result1);
         console.log('Concurrent Request 2 Result:', result2);
@@ -162,19 +162,20 @@ async function runVerificationTests() {
         console.log(`Expired Booking status: ${expCheckBooking[0].status}, Slot is_booked: ${expCheckSlot[0].is_booked}`);
 
         // Test 12: Verify Patient Find-or-Create Reuse
-        console.log('\n[Test 12] Verify Patient Reuse (Sarah Connor again)...');
+        console.log('\n[Test 12] Verify Patient Reuse (Patient 1 again)...');
         const reqSlot3 = { body: { doctorId: doctorId, date: '2026-11-21', time: '10:00 AM' } };
         const resSlot3 = createMockRes();
         await adminController.createSlot(reqSlot3, resSlot3);
         const slotId3 = resSlot3.data._id;
 
-        const reqBook3 = { body: { slotId: slotId3, patientName: 'Sarah Connor' } };
+        const reqBook3 = { body: { slotId: slotId3, patientName: 'Patient 1' } };
         const resBook3 = createMockRes();
         await patientController.bookSlot(reqBook3, resBook3);
         console.log('Booking 3 response:', resBook3.statusCode, resBook3.data);
 
-        const [patientRows] = await pool.query('SELECT COUNT(*) AS count FROM patients WHERE name = "Sarah Connor"');
-        console.log('Total patient records for Sarah Connor in DB:', patientRows[0].count);
+        const [patientRows] = await pool.query('SELECT COUNT(*) AS count FROM patients WHERE name = "Patient 1"');
+        console.log('Total patient records for Patient 1 in DB:', patientRows[0].count);
+
 
         console.log('\n=== ALL VERIFICATION TESTS PASSED SUCCESSFULLY! ===');
         process.exit(0);

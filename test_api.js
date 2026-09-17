@@ -38,7 +38,7 @@ const runTest = async () => {
         // 1. Create Doctor
         console.log('1. Creating Doctor...');
         const doctorRes = await request('/admin/doctors', 'POST', {
-            name: 'Dr. Gregory House',
+            name: 'Doctor 1',
             specialization: 'Diagnostics'
         });
         console.log(`Status: ${doctorRes.status}`, doctorRes.body);
@@ -50,7 +50,7 @@ const runTest = async () => {
         console.log('\n2. Creating Slot...');
         const slotRes = await request('/admin/slots', 'POST', {
             doctorId: doctorId,
-            date: '2025-12-11',
+            date: '2026-12-11',
             time: '14:00'
         });
         console.log(`Status: ${slotRes.status}`, slotRes.body);
@@ -58,12 +58,13 @@ const runTest = async () => {
 
         if (!slotId) throw new Error('Failed to create slot');
 
-        // 3. Book Slot (Patient A)
-        console.log('\n3. Booking Slot (Patient A)...');
+        // 3. Book Slot (Patient 1)
+        console.log('\n3. Booking Slot (Patient 1)...');
         const bookingARes = await request('/bookings', 'POST', {
             slotId: slotId,
-            patientName: 'Patient A'
+            patientName: 'Patient 1'
         });
+
         console.log(`Status: ${bookingARes.status}`, bookingARes.body);
 
         // 4. Attempt Double Booking (Patient B) - Should Fail

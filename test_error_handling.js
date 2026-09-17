@@ -62,7 +62,7 @@ async function runErrorHandlingAndQualityTests() {
 
         // Create valid Doctor for subsequent tests
         const resDocValid = createMockRes();
-        await adminController.createDoctor({ body: { name: 'Dr. Leonard McCoy', specialization: 'General Medicine' } }, resDocValid);
+        await adminController.createDoctor({ body: { name: 'Doctor 1', specialization: 'General Medicine' } }, resDocValid);
         const validDoctorId = resDocValid.data._id;
         console.log('Valid Doctor Created ID:', validDoctorId);
 
@@ -114,7 +114,7 @@ async function runErrorHandlingAndQualityTests() {
 
         // Test 8: bookSlot non-existent slotId
         const resBookNoSlot = createMockRes();
-        await patientController.bookSlot({ body: { slotId: '999999', patientName: 'James Kirk' } }, resBookNoSlot);
+        await patientController.bookSlot({ body: { slotId: '999999', patientName: 'Patient 1' } }, resBookNoSlot);
         console.log('Test 8 (Book non-existent slot):', resBookNoSlot.statusCode, resBookNoSlot.data);
         if (resBookNoSlot.statusCode !== 409 || resBookNoSlot.data.error !== 'Slot not available') {
             throw new Error('Test 8 Failed: Expected 409 Conflict for non-existent slot');
@@ -122,19 +122,21 @@ async function runErrorHandlingAndQualityTests() {
 
         // Test 9: bookSlot successful booking
         const resBookSuccess = createMockRes();
-        await patientController.bookSlot({ body: { slotId: validSlotId, patientName: 'James Kirk' } }, resBookSuccess);
+        await patientController.bookSlot({ body: { slotId: validSlotId, patientName: 'Patient 1' } }, resBookSuccess);
         console.log('Test 9 (Successful booking):', resBookSuccess.statusCode, resBookSuccess.data);
         if (resBookSuccess.statusCode !== 201 || resBookSuccess.data.status !== 'CONFIRMED') {
             throw new Error('Test 9 Failed: Expected 201 Created');
         }
 
+
         // Test 10: bookSlot already-booked slot
         const resBookConflict = createMockRes();
-        await patientController.bookSlot({ body: { slotId: validSlotId, patientName: 'Spock' } }, resBookConflict);
+        await patientController.bookSlot({ body: { slotId: validSlotId, patientName: 'Patient 2' } }, resBookConflict);
         console.log('Test 10 (Book already-booked slot):', resBookConflict.statusCode, resBookConflict.data);
         if (resBookConflict.statusCode !== 409 || resBookConflict.data.error !== 'Slot not available') {
             throw new Error('Test 10 Failed: Expected 409 Conflict for already-booked slot');
         }
+
 
         console.log('\n--- SECTION 2: Transaction & Rollback Integrity ---');
 
